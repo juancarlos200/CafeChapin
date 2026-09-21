@@ -6,5 +6,7 @@ data class CoffeeProduct(
     val description: String,
     val price: Double,
     val producerId: String,
-    val technicalInfo: String
+    val technicalInfo: String,
+    val stock: Int,
+    val imageUrl: String
 )

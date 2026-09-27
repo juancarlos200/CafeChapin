@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import com.example.cafechapin.domain.addToOrder
 import com.example.cafechapin.domain.decreaseItem
 import com.example.cafechapin.domain.removeItem
+import com.example.cafechapin.model.BillingType
 import com.example.cafechapin.model.CoffeeProduct
 import com.example.cafechapin.model.OrderResult
+import com.example.cafechapin.model.PaymentMethod
 import com.example.cafechapin.model.ProducerProfile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -212,6 +214,86 @@ class StoreViewModel : ViewModel() {
                 ),
                 orderMessage = null
             )
+        }
+    }
+
+    fun onFullNameChange(value: String) {
+        _uiState.update { currentState ->
+            currentState.copy(
+                checkout = currentState.checkout.copy(
+                    fullName = value,
+                    fullNameTouched = true
+                )
+            )
+        }
+    }
+
+    fun onPhoneChange(value: String) {
+        _uiState.update { currentState ->
+            currentState.copy(
+                checkout = currentState.checkout.copy(
+                    phone = value,
+                    phoneTouched = true
+                )
+            )
+        }
+    }
+
+    fun onNitChange(value: String) {
+        _uiState.update { currentState ->
+            currentState.copy(
+                checkout = currentState.checkout.copy(
+                    nit = value,
+                    nitTouched = true
+                )
+            )
+        }
+    }
+
+    fun onBusinessNameChange(value: String) {
+        _uiState.update { currentState ->
+            currentState.copy(
+                checkout = currentState.checkout.copy(
+                    businessName = value,
+                    businessNameTouched = true
+                )
+            )
+        }
+    }
+
+    fun onBillingTypeChange(billingType: BillingType) {
+        _uiState.update { currentState ->
+            val currentCheckout = currentState.checkout
+
+            val updatedCheckout = if (billingType == BillingType.CF) {
+                currentCheckout.copy(
+                    billingType = BillingType.CF,
+                    nitTouched = false,
+                    businessNameTouched = false
+                )
+            } else {
+                currentCheckout.copy(
+                    billingType = BillingType.NIT
+                )
+            }
+
+            currentState.copy(checkout = updatedCheckout)
+        }
+    }
+
+    fun onPaymentMethodChange(paymentMethod: PaymentMethod) {
+        _uiState.update { currentState ->
+            currentState.copy(
+                checkout = currentState.checkout.copy(
+                    paymentMethod = paymentMethod
+                )
+            )
+        }
+    }
+
+    fun resetCheckout() {
+        _uiState.update { currentState ->
+            currentState.copy(checkout = CheckoutUiState())
         }
     }
 }

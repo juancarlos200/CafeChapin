@@ -10,5 +10,9 @@ data class StoreUiState(
     val favoriteProductIds: Set<String> = emptySet(),
     val query: String = "",
     val orderItems: List<OrderItem> = emptyList(),
-    val orderMessage: String? = null
-)
+    val orderMessage: String? = null,
+    val checkout: CheckoutUiState = CheckoutUiState()
+) {
+    val orderUnits: Int
+        get() = orderItems.sumOf { it.quantity }
+}

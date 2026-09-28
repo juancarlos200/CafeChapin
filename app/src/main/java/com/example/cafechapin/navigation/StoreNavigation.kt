@@ -7,21 +7,34 @@ import androidx.compose.runtime.Composable
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
+import com.example.cafechapin.model.BillingType
+import com.example.cafechapin.model.PaymentMethod
 import com.example.cafechapin.ui.StoreUiState
 import com.example.cafechapin.ui.screens.CatalogScreen
+import com.example.cafechapin.ui.screens.CheckoutScreen
+import com.example.cafechapin.ui.screens.ConfirmationScreen
 import com.example.cafechapin.ui.screens.DetailScreen
 import com.example.cafechapin.ui.screens.OrderScreen
 import com.example.cafechapin.ui.screens.ProducerProfileScreen
+import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 fun StoreNavigation(
     uiState: StoreUiState,
+    storeUiState: StateFlow<StoreUiState>,
     onToggleFavorite: (String) -> Unit,
     onQueryChange: (String) -> Unit,
     onAddToOrder: (String) -> Unit,
     onIncreaseOrderItem: (String) -> Unit,
     onDecreaseOrderItem: (String) -> Unit,
-    onRemoveOrderItem: (String) -> Unit
+    onRemoveOrderItem: (String) -> Unit,
+    onFullNameChange: (String) -> Unit,
+    onPhoneChange: (String) -> Unit,
+    onNitChange: (String) -> Unit,
+    onBusinessNameChange: (String) -> Unit,
+    onBillingTypeChange: (BillingType) -> Unit,
+    onPaymentMethodChange: (PaymentMethod) -> Unit,
+    onConfirmOrder: () -> Boolean
 ) {
     val backStack =
         rememberNavBackStack(
@@ -182,7 +195,46 @@ fun StoreNavigation(
                         onDecreaseOrderItem,
                     onRemove =
                         onRemoveOrderItem,
+                    onContinueToCheckout = {
+                        backStack.add(
+                            StoreNavKey.Checkout
+                        )
+                    },
                     onBack = ::goBack
+                )
+            }
+
+            entry<StoreNavKey.Checkout> {
+                CheckoutScreen(
+                    storeUiState = storeUiState,
+                    onFullNameChange = onFullNameChange,
+                    onPhoneChange = onPhoneChange,
+                    onNitChange = onNitChange,
+                    onBusinessNameChange = onBusinessNameChange,
+                    onBillingTypeChange = onBillingTypeChange,
+                    onPaymentMethodChange = onPaymentMethodChange,
+                    onConfirmOrder = {
+                        val success = onConfirmOrder()
+
+                        if (success) {
+                            backStack.add(
+                                StoreNavKey.Confirmation
+                            )
+                        }
+                    },
+                    onBack = ::goBack
+                )
+            }
+
+            entry<StoreNavKey.Confirmation> {
+                ConfirmationScreen(
+                    receipt = uiState.receipt,
+                    onBackToCatalog = {
+                        backStack.clear()
+                        backStack.add(
+                            StoreNavKey.Catalog
+                        )
+                    }
                 )
             }
         }

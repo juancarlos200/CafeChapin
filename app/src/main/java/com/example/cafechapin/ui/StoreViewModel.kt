@@ -2,10 +2,12 @@ package com.example.cafechapin.ui
 
 import androidx.lifecycle.ViewModel
 import com.example.cafechapin.domain.addToOrder
+import com.example.cafechapin.domain.calculateTotal
 import com.example.cafechapin.domain.decreaseItem
 import com.example.cafechapin.domain.removeItem
 import com.example.cafechapin.model.BillingType
 import com.example.cafechapin.model.CoffeeProduct
+import com.example.cafechapin.model.OrderReceipt
 import com.example.cafechapin.model.OrderResult
 import com.example.cafechapin.model.PaymentMethod
 import com.example.cafechapin.model.ProducerProfile
@@ -117,6 +119,8 @@ class StoreViewModel : ViewModel() {
     )
 
     val uiState: StateFlow<StoreUiState> = _uiState.asStateFlow()
+
+    private var nextOrderNumber = 1
 
     fun toggleFavorite(productId: String) {
         _uiState.update { currentState ->
@@ -295,5 +299,46 @@ class StoreViewModel : ViewModel() {
         _uiState.update { currentState ->
             currentState.copy(checkout = CheckoutUiState())
         }
+    }
+
+    fun confirmOrder(): Boolean {
+        val currentState = _uiState.value
+        val checkout = currentState.checkout
+
+        if (!checkout.isFormValid || currentState.orderUnits <= 0) {
+            return false
+        }
+
+        val total = calculateTotal(
+            items = currentState.orderItems,
+            products = currentState.products
+        )
+
+        val folio = "#ORD-" + nextOrderNumber.toString().padStart(5, '0')
+        nextOrderNumber++
+
+        val receipt = OrderReceipt(
+            folio = folio,
+            customerName = checkout.fullName,
+            billingType = checkout.billingType,
+            nit = if (checkout.billingType == BillingType.NIT) checkout.nit else null,
+            businessName = if (checkout.billingType == BillingType.NIT) {
+                checkout.businessName
+            } else {
+                null
+            },
+            paymentMethod = checkout.paymentMethod,
+            total = total
+        )
+
+        _uiState.update {
+            it.copy(
+                orderItems = emptyList(),
+                checkout = CheckoutUiState(),
+                receipt = receipt
+            )
+        }
+
+        return true
     }
 }

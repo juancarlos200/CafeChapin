@@ -21,4 +21,10 @@ sealed interface StoreNavKey : NavKey {
 
     @Serializable
     data object Order : StoreNavKey
+
+    @Serializable
+    data object Checkout : StoreNavKey
+
+    @Serializable
+    data object Confirmation : StoreNavKey
 }

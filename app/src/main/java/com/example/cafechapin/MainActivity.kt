@@ -31,6 +31,7 @@ class MainActivity : ComponentActivity() {
 
                 StoreNavigation(
                     uiState = uiState,
+                    storeUiState = storeViewModel.uiState,
                     onToggleFavorite =
                         storeViewModel::toggleFavorite,
                     onQueryChange =
@@ -42,7 +43,21 @@ class MainActivity : ComponentActivity() {
                     onDecreaseOrderItem =
                         storeViewModel::decreaseOrderItem,
                     onRemoveOrderItem =
-                        storeViewModel::removeOrderItem
+                        storeViewModel::removeOrderItem,
+                    onFullNameChange =
+                        storeViewModel::onFullNameChange,
+                    onPhoneChange =
+                        storeViewModel::onPhoneChange,
+                    onNitChange =
+                        storeViewModel::onNitChange,
+                    onBusinessNameChange =
+                        storeViewModel::onBusinessNameChange,
+                    onBillingTypeChange =
+                        storeViewModel::onBillingTypeChange,
+                    onPaymentMethodChange =
+                        storeViewModel::onPaymentMethodChange,
+                    onConfirmOrder =
+                        storeViewModel::confirmOrder
                 )
             }
         }

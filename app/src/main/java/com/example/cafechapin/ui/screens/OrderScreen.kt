@@ -40,10 +40,14 @@ fun OrderScreen(
     onIncrease: (String) -> Unit,
     onDecrease: (String) -> Unit,
     onRemove: (String) -> Unit,
+    onContinueToCheckout: () -> Unit,
     onBack: () -> Unit
 ) {
     val total =
         calculateTotal(orderItems, products)
+
+    val orderUnits =
+        orderItems.sumOf { it.quantity }
 
     Scaffold(
         topBar = {
@@ -90,6 +94,13 @@ fun OrderScreen(
                     onClick = onBack
                 ) {
                     Text("Volver al catálogo")
+                }
+
+                Button(
+                    onClick = onContinueToCheckout,
+                    enabled = orderUnits > 0
+                ) {
+                    Text("Continuar al checkout")
                 }
             }
         } else {
@@ -226,6 +237,16 @@ fun OrderScreen(
                         style =
                             MaterialTheme.typography.headlineSmall
                     )
+                }
+
+                item {
+                    Button(
+                        onClick = onContinueToCheckout,
+                        enabled = orderUnits > 0,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Continuar al checkout")
+                    }
                 }
             }
         }

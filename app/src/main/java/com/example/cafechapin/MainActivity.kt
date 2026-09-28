@@ -11,17 +11,53 @@ import com.example.cafechapin.ui.StoreViewModel
 import com.example.cafechapin.ui.theme.CafeChapinTheme
 
 class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
+
+    override fun onCreate(
+        savedInstanceState: Bundle?
+    ) {
         super.onCreate(savedInstanceState)
+
         enableEdgeToEdge()
+
         setContent {
             CafeChapinTheme {
-                val storeViewModel: StoreViewModel = viewModel()
-                val uiState = storeViewModel.uiState.collectAsStateWithLifecycle().value
+                val storeViewModel:
+                        StoreViewModel = viewModel()
+
+                val uiState =
+                    storeViewModel.uiState
+                        .collectAsStateWithLifecycle()
+                        .value
 
                 StoreNavigation(
                     uiState = uiState,
-                    onToggleFavorite = storeViewModel::toggleFavorite
+                    storeUiState = storeViewModel.uiState,
+                    onToggleFavorite =
+                        storeViewModel::toggleFavorite,
+                    onQueryChange =
+                        storeViewModel::updateQuery,
+                    onAddToOrder =
+                        storeViewModel::addProductToOrder,
+                    onIncreaseOrderItem =
+                        storeViewModel::increaseOrderItem,
+                    onDecreaseOrderItem =
+                        storeViewModel::decreaseOrderItem,
+                    onRemoveOrderItem =
+                        storeViewModel::removeOrderItem,
+                    onFullNameChange =
+                        storeViewModel::onFullNameChange,
+                    onPhoneChange =
+                        storeViewModel::onPhoneChange,
+                    onNitChange =
+                        storeViewModel::onNitChange,
+                    onBusinessNameChange =
+                        storeViewModel::onBusinessNameChange,
+                    onBillingTypeChange =
+                        storeViewModel::onBillingTypeChange,
+                    onPaymentMethodChange =
+                        storeViewModel::onPaymentMethodChange,
+                    onConfirmOrder =
+                        storeViewModel::confirmOrder
                 )
             }
         }

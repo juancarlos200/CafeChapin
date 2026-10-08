@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.cafechapin.data.FavoriteEntity
+import com.example.cafechapin.data.OrderLineEntity
 import com.example.cafechapin.data.StoreDatabase
 import com.example.cafechapin.domain.addToOrder
 import com.example.cafechapin.domain.calculateTotal
@@ -11,6 +12,7 @@ import com.example.cafechapin.domain.decreaseItem
 import com.example.cafechapin.domain.removeItem
 import com.example.cafechapin.model.BillingType
 import com.example.cafechapin.model.CoffeeProduct
+import com.example.cafechapin.model.OrderItem
 import com.example.cafechapin.model.OrderReceipt
 import com.example.cafechapin.model.OrderResult
 import com.example.cafechapin.model.PaymentMethod
@@ -26,8 +28,11 @@ class StoreViewModel(
     application: Application
 ) : AndroidViewModel(application) {
 
-    private val favoriteDao =
-        StoreDatabase.getDatabase(application).favoriteDao()
+    private val database = StoreDatabase.getDatabase(application)
+
+    private val favoriteDao = database.favoriteDao()
+
+    private val orderLineDao = database.orderLineDao()
 
     private val products = createProducts()
 
@@ -144,6 +149,41 @@ class StoreViewModel(
                 }
             }
         }
+
+        viewModelScope.launch {
+            orderLineDao.getOrderLines().collect { orderLines ->
+                _uiState.update { currentState ->
+                    currentState.copy(
+                        orderItems = orderLines.map {
+                            OrderItem(
+                                productId = it.productId,
+                                quantity = it.quantity
+                            )
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    private fun saveOrderLine(
+        items: List<OrderItem>,
+        productId: String
+    ) {
+        val item = items.find { it.productId == productId }
+
+        viewModelScope.launch {
+            if (item == null) {
+                orderLineDao.deleteByProductId(productId)
+            } else {
+                orderLineDao.insert(
+                    OrderLineEntity(
+                        productId = item.productId,
+                        quantity = item.quantity
+                    )
+                )
+            }
+        }
     }
 
     fun toggleFavorite(productId: String) {
@@ -175,11 +215,10 @@ class StoreViewModel(
             )
         ) {
             is OrderResult.Success -> {
+                saveOrderLine(result.items, productId)
+
                 _uiState.update {
-                    it.copy(
-                        orderItems = result.items,
-                        orderMessage = "Se agregó 1 unidad al pedido."
-                    )
+                    it.copy(orderMessage = "Se agregó 1 unidad al pedido.")
                 }
             }
 
@@ -202,11 +241,10 @@ class StoreViewModel(
             )
         ) {
             is OrderResult.Success -> {
+                saveOrderLine(result.items, productId)
+
                 _uiState.update {
-                    it.copy(
-                        orderItems = result.items,
-                        orderMessage = null
-                    )
+                    it.copy(orderMessage = null)
                 }
             }
 
@@ -219,26 +257,28 @@ class StoreViewModel(
     }
 
     fun decreaseOrderItem(productId: String) {
-        _uiState.update { currentState ->
-            currentState.copy(
-                orderItems = decreaseItem(
-                    items = currentState.orderItems,
-                    productId = productId
-                ),
-                orderMessage = null
-            )
+        val updatedItems = decreaseItem(
+            items = _uiState.value.orderItems,
+            productId = productId
+        )
+
+        saveOrderLine(updatedItems, productId)
+
+        _uiState.update {
+            it.copy(orderMessage = null)
         }
     }
 
     fun removeOrderItem(productId: String) {
-        _uiState.update { currentState ->
-            currentState.copy(
-                orderItems = removeItem(
-                    items = currentState.orderItems,
-                    productId = productId
-                ),
-                orderMessage = null
-            )
+        val updatedItems = removeItem(
+            items = _uiState.value.orderItems,
+            productId = productId
+        )
+
+        saveOrderLine(updatedItems, productId)
+
+        _uiState.update {
+            it.copy(orderMessage = null)
         }
     }
 
@@ -352,9 +392,12 @@ class StoreViewModel(
             total = total
         )
 
+        viewModelScope.launch {
+            orderLineDao.clearOrder()
+        }
+
         _uiState.update {
             it.copy(
-                orderItems = emptyList(),
                 checkout = CheckoutUiState(),
                 receipt = receipt
             )

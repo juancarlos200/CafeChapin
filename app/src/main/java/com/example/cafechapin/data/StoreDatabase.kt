@@ -7,13 +7,18 @@ import androidx.room3.RoomDatabase
 import androidx.sqlite.driver.AndroidSQLiteDriver
 
 @Database(
-    entities = [FavoriteEntity::class],
+    entities = [
+        FavoriteEntity::class,
+        OrderLineEntity::class
+    ],
     version = 1,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class StoreDatabase : RoomDatabase() {
 
     abstract fun favoriteDao(): FavoriteDao
+
+    abstract fun orderLineDao(): OrderLineDao
 
     companion object {
         @Volatile

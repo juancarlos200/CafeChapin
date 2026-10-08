@@ -1,6 +1,10 @@
 package com.example.cafechapin.ui
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.cafechapin.data.FavoriteEntity
+import com.example.cafechapin.data.StoreDatabase
 import com.example.cafechapin.domain.addToOrder
 import com.example.cafechapin.domain.calculateTotal
 import com.example.cafechapin.domain.decreaseItem
@@ -15,9 +19,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlin.random.Random
 
-class StoreViewModel : ViewModel() {
+class StoreViewModel(
+    application: Application
+) : AndroidViewModel(application) {
+
+    private val favoriteDao =
+        StoreDatabase.getDatabase(application).favoriteDao()
 
     private val products = createProducts()
 
@@ -122,18 +132,29 @@ class StoreViewModel : ViewModel() {
 
     private var nextOrderNumber = 1
 
-    fun toggleFavorite(productId: String) {
-        _uiState.update { currentState ->
-            val updatedFavorites =
-                if (productId in currentState.favoriteProductIds) {
-                    currentState.favoriteProductIds - productId
-                } else {
-                    currentState.favoriteProductIds + productId
+    init {
+        viewModelScope.launch {
+            favoriteDao.getFavorites().collect { favorites ->
+                _uiState.update { currentState ->
+                    currentState.copy(
+                        favoriteProductIds = favorites
+                            .map { it.productId }
+                            .toSet()
+                    )
                 }
+            }
+        }
+    }
 
-            currentState.copy(
-                favoriteProductIds = updatedFavorites
-            )
+    fun toggleFavorite(productId: String) {
+        val favorite = FavoriteEntity(productId = productId)
+
+        viewModelScope.launch {
+            if (productId in _uiState.value.favoriteProductIds) {
+                favoriteDao.delete(favorite)
+            } else {
+                favoriteDao.insert(favorite)
+            }
         }
     }
 

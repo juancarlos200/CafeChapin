@@ -23,6 +23,7 @@ fun StoreNavigation(
     uiState: StoreUiState,
     storeUiState: StateFlow<StoreUiState>,
     onToggleFavorite: (String) -> Unit,
+    onToggleDarkTheme: () -> Unit,
     onQueryChange: (String) -> Unit,
     onAddToOrder: (String) -> Unit,
     onIncreaseOrderItem: (String) -> Unit,
@@ -75,6 +76,8 @@ fun StoreNavigation(
                         uiState.favoriteProductIds,
                     query =
                         uiState.query,
+                    isDarkTheme =
+                        uiState.isDarkTheme,
                     orderQuantity =
                         totalOrderQuantity,
                     gridState =
@@ -91,6 +94,8 @@ fun StoreNavigation(
                     },
                     onToggleFavorite =
                         onToggleFavorite,
+                    onToggleDarkTheme =
+                        onToggleDarkTheme,
                     onOpenOrder = {
                         backStack.add(
                             StoreNavKey.Order

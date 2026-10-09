@@ -55,6 +55,7 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.androidx.room3.runtime)
     ksp(libs.androidx.room3.compiler)
+    implementation(libs.androidx.datastore.preferences)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

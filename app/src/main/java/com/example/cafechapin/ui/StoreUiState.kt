@@ -13,7 +13,8 @@ data class StoreUiState(
     val orderItems: List<OrderItem> = emptyList(),
     val orderMessage: String? = null,
     val checkout: CheckoutUiState = CheckoutUiState(),
-    val receipt: OrderReceipt? = null
+    val receipt: OrderReceipt? = null,
+    val isDarkTheme: Boolean = false
 ) {
     val orderUnits: Int
         get() = orderItems.sumOf { it.quantity }

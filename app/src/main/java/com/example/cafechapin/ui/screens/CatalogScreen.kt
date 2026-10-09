@@ -43,11 +43,13 @@ fun CatalogScreen(
     products: List<CoffeeProduct>,
     favoriteProductIds: Set<String>,
     query: String,
+    isDarkTheme: Boolean,
     orderQuantity: Int,
     gridState: LazyGridState,
     onQueryChange: (String) -> Unit,
     onProductSelected: (String) -> Unit,
     onToggleFavorite: (String) -> Unit,
+    onToggleDarkTheme: () -> Unit,
     onOpenOrder: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -71,6 +73,18 @@ fun CatalogScreen(
             TopAppBar(
                 title = { Text("Café Chapín") },
                 actions = {
+                    IconButton(
+                        onClick = onToggleDarkTheme
+                    ) {
+                        Text(
+                            if (isDarkTheme) {
+                                "☀"
+                            } else {
+                                "☾"
+                            }
+                        )
+                    }
+
                     Button(
                         onClick = onOpenOrder
                     ) {

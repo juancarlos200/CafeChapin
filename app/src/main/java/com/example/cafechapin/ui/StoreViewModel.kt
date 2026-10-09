@@ -182,6 +182,41 @@ class StoreViewModel(
                 )
             }
         }
+
+        viewModelScope.launch {
+            orderLineDao.getOrderLines().collect { orderLines ->
+                _uiState.update { currentState ->
+                    currentState.copy(
+                        orderItems = orderLines.map {
+                            OrderItem(
+                                productId = it.productId,
+                                quantity = it.quantity
+                            )
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    private fun saveOrderLine(
+        items: List<OrderItem>,
+        productId: String
+    ) {
+        val item = items.find { it.productId == productId }
+
+        viewModelScope.launch {
+            if (item == null) {
+                orderLineDao.deleteByProductId(productId)
+            } else {
+                orderLineDao.insert(
+                    OrderLineEntity(
+                        productId = item.productId,
+                        quantity = item.quantity
+                    )
+                )
+            }
+        }
     }
 
     fun toggleFavorite(productId: String) {

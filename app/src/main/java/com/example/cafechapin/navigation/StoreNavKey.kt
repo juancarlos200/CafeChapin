@@ -5,12 +5,34 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 sealed interface StoreNavKey : NavKey {
+
     @Serializable
     data object Catalog : StoreNavKey
 
     @Serializable
-    data class Detail(val productId: String) : StoreNavKey
+    data class Detail(
+        val productId: String
+    ) : StoreNavKey
 
     @Serializable
-    data class Profile(val profileId: String) : StoreNavKey
+    data class Profile(
+        val profileId: String
+    ) : StoreNavKey
+
+    @Serializable
+    data object Order : StoreNavKey
+
+    @Serializable
+    data object Checkout : StoreNavKey
+
+    @Serializable
+    data object Confirmation : StoreNavKey
+
+    @Serializable
+    data object Orders : StoreNavKey
+
+    @Serializable
+    data class OrderDetail(
+        val orderId: String
+    ) : StoreNavKey
 }

@@ -4,17 +4,25 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.example.cafechapin.model.BillingType
 import com.example.cafechapin.model.PaymentMethod
+import com.example.cafechapin.ui.OrdersViewModel
 import com.example.cafechapin.ui.StoreUiState
+import com.example.cafechapin.ui.SubmitOrderUiState
 import com.example.cafechapin.ui.screens.CatalogScreen
 import com.example.cafechapin.ui.screens.CheckoutScreen
 import com.example.cafechapin.ui.screens.ConfirmationScreen
 import com.example.cafechapin.ui.screens.DetailScreen
+import com.example.cafechapin.ui.screens.OrderDetailScreen
 import com.example.cafechapin.ui.screens.OrderScreen
+import com.example.cafechapin.ui.screens.OrdersScreen
 import com.example.cafechapin.ui.screens.ProducerProfileScreen
 import kotlinx.coroutines.flow.StateFlow
 
@@ -22,6 +30,7 @@ import kotlinx.coroutines.flow.StateFlow
 fun StoreNavigation(
     uiState: StoreUiState,
     storeUiState: StateFlow<StoreUiState>,
+    submitState: StateFlow<SubmitOrderUiState>,
     onToggleFavorite: (String) -> Unit,
     onQueryChange: (String) -> Unit,
     onAddToOrder: (String) -> Unit,
@@ -34,7 +43,8 @@ fun StoreNavigation(
     onBusinessNameChange: (String) -> Unit,
     onBillingTypeChange: (BillingType) -> Unit,
     onPaymentMethodChange: (PaymentMethod) -> Unit,
-    onConfirmOrder: () -> Boolean
+    onConfirmOrder: () -> Unit,
+    onSubmitHandled: () -> Unit
 ) {
     val backStack =
         rememberNavBackStack(
@@ -42,6 +52,26 @@ fun StoreNavigation(
         )
 
     val catalogGridState = rememberLazyGridState()
+
+    val currentSubmitState by
+        submitState.collectAsStateWithLifecycle()
+
+    val ordersViewModel: OrdersViewModel = viewModel()
+
+    val ordersState by
+        ordersViewModel.ordersState.collectAsStateWithLifecycle()
+
+    val orderDetailState by
+        ordersViewModel.detailState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(currentSubmitState) {
+        if (currentSubmitState == SubmitOrderUiState.Success) {
+            backStack.add(
+                StoreNavKey.Confirmation
+            )
+            onSubmitHandled()
+        }
+    }
 
     val totalOrderQuantity =
         uiState.orderItems.sumOf {
@@ -94,6 +124,12 @@ fun StoreNavigation(
                     onOpenOrder = {
                         backStack.add(
                             StoreNavKey.Order
+                        )
+                    },
+                    onOpenOrders = {
+                        ordersViewModel.loadOrders()
+                        backStack.add(
+                            StoreNavKey.Orders
                         )
                     }
                 )
@@ -213,16 +249,45 @@ fun StoreNavigation(
                     onBusinessNameChange = onBusinessNameChange,
                     onBillingTypeChange = onBillingTypeChange,
                     onPaymentMethodChange = onPaymentMethodChange,
-                    onConfirmOrder = {
-                        val success = onConfirmOrder()
+                    isSending =
+                        currentSubmitState == SubmitOrderUiState.Sending,
+                    submitError =
+                        (currentSubmitState as? SubmitOrderUiState.Error)?.message,
+                    onConfirmOrder = onConfirmOrder,
+                    onBack = ::goBack
+                )
+            }
 
-                        if (success) {
-                            backStack.add(
-                                StoreNavKey.Confirmation
-                            )
-                        }
+            entry<StoreNavKey.Orders> {
+                OrdersScreen(
+                    state = ordersState,
+                    onRetry = ordersViewModel::loadOrders,
+                    onOrderSelected = { orderId ->
+                        ordersViewModel.loadOrder(orderId)
+                        backStack.add(
+                            StoreNavKey.OrderDetail(orderId)
+                        )
+                    },
+                    onGoToCatalog = {
+                        backStack.clear()
+                        backStack.add(
+                            StoreNavKey.Catalog
+                        )
                     },
                     onBack = ::goBack
+                )
+            }
+
+            entry<StoreNavKey.OrderDetail> { key ->
+                OrderDetailScreen(
+                    state = orderDetailState,
+                    onRetry = {
+                        ordersViewModel.loadOrder(key.orderId)
+                    },
+                    onBackToOrders = {
+                        ordersViewModel.loadOrders()
+                        goBack()
+                    }
                 )
             }
 

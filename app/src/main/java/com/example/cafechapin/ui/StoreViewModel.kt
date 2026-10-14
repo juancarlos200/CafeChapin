@@ -1,6 +1,8 @@
 package com.example.cafechapin.ui
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.cafechapin.domain.addToOrder
 import com.example.cafechapin.domain.calculateTotal
 import com.example.cafechapin.domain.decreaseItem
@@ -11,10 +13,16 @@ import com.example.cafechapin.model.OrderReceipt
 import com.example.cafechapin.model.OrderResult
 import com.example.cafechapin.model.PaymentMethod
 import com.example.cafechapin.model.ProducerProfile
+import com.example.cafechapin.network.StoreApi
+import com.example.cafechapin.network.createOrderDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.serialization.SerializationException
+import retrofit2.HttpException
+import java.io.IOException
 import kotlin.random.Random
 
 class StoreViewModel : ViewModel() {
@@ -120,7 +128,10 @@ class StoreViewModel : ViewModel() {
 
     val uiState: StateFlow<StoreUiState> = _uiState.asStateFlow()
 
-    private var nextOrderNumber = 1
+    private val _submitState =
+        MutableStateFlow<SubmitOrderUiState>(SubmitOrderUiState.Idle)
+
+    val submitState: StateFlow<SubmitOrderUiState> = _submitState.asStateFlow()
 
     fun toggleFavorite(productId: String) {
         _uiState.update { currentState ->
@@ -301,12 +312,16 @@ class StoreViewModel : ViewModel() {
         }
     }
 
-    fun confirmOrder(): Boolean {
+    fun confirmOrder() {
         val currentState = _uiState.value
         val checkout = currentState.checkout
 
+        if (_submitState.value == SubmitOrderUiState.Sending) {
+            return
+        }
+
         if (!checkout.isFormValid || currentState.orderUnits <= 0) {
-            return false
+            return
         }
 
         val total = calculateTotal(
@@ -314,31 +329,63 @@ class StoreViewModel : ViewModel() {
             products = currentState.products
         )
 
-        val folio = "#ORD-" + nextOrderNumber.toString().padStart(5, '0')
-        nextOrderNumber++
-
-        val receipt = OrderReceipt(
-            folio = folio,
-            customerName = checkout.fullName,
+        val order = createOrderDto(
+            items = currentState.orderItems,
+            products = currentState.products,
             billingType = checkout.billingType,
-            nit = if (checkout.billingType == BillingType.NIT) checkout.nit else null,
-            businessName = if (checkout.billingType == BillingType.NIT) {
-                checkout.businessName
-            } else {
-                null
-            },
             paymentMethod = checkout.paymentMethod,
-            total = total
+            createdAt = System.currentTimeMillis()
         )
 
-        _uiState.update {
-            it.copy(
-                orderItems = emptyList(),
-                checkout = CheckoutUiState(),
-                receipt = receipt
-            )
-        }
+        _submitState.value = SubmitOrderUiState.Sending
 
-        return true
+        viewModelScope.launch {
+            try {
+                val createdOrder = StoreApi.orderApi.createOrder(order)
+
+                val receipt = OrderReceipt(
+                    folio = "#${createdOrder.id.orEmpty()}",
+                    customerName = checkout.fullName,
+                    billingType = checkout.billingType,
+                    nit = if (checkout.billingType == BillingType.NIT) checkout.nit else null,
+                    businessName = if (checkout.billingType == BillingType.NIT) {
+                        checkout.businessName
+                    } else {
+                        null
+                    },
+                    paymentMethod = checkout.paymentMethod,
+                    total = total
+                )
+
+                _uiState.update {
+                    it.copy(
+                        orderItems = emptyList(),
+                        checkout = CheckoutUiState(),
+                        receipt = receipt
+                    )
+                }
+
+                _submitState.value = SubmitOrderUiState.Success
+            } catch (e: IOException) {
+                Log.e("StoreViewModel", "Sin conexión al enviar el pedido", e)
+                _submitState.value = SubmitOrderUiState.Error(
+                    "No pudimos enviar tu pedido. Revisa tu conexión."
+                )
+            } catch (e: HttpException) {
+                Log.e("StoreViewModel", "HTTP ${e.code()} al enviar el pedido", e)
+                _submitState.value = SubmitOrderUiState.Error(
+                    "El servidor no pudo recibir tu pedido. Intenta de nuevo."
+                )
+            } catch (e: SerializationException) {
+                Log.e("StoreViewModel", "Respuesta inesperada al enviar el pedido", e)
+                _submitState.value = SubmitOrderUiState.Error(
+                    "Recibimos una respuesta inesperada. Intenta de nuevo."
+                )
+            }
+        }
+    }
+
+    fun onSubmitHandled() {
+        _submitState.value = SubmitOrderUiState.Idle
     }
 }

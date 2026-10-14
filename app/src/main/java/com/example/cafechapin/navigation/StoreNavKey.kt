@@ -27,4 +27,12 @@ sealed interface StoreNavKey : NavKey {
 
     @Serializable
     data object Confirmation : StoreNavKey
+
+    @Serializable
+    data object Orders : StoreNavKey
+
+    @Serializable
+    data class OrderDetail(
+        val orderId: String
+    ) : StoreNavKey
 }

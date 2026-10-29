@@ -2,6 +2,7 @@ package com.example.cafechapin.ui
 
 import com.example.cafechapin.model.CoffeeProduct
 import com.example.cafechapin.model.OrderItem
+import com.example.cafechapin.model.OrderReceipt
 import com.example.cafechapin.model.ProducerProfile
 
 data class StoreUiState(
@@ -10,5 +11,10 @@ data class StoreUiState(
     val favoriteProductIds: Set<String> = emptySet(),
     val query: String = "",
     val orderItems: List<OrderItem> = emptyList(),
-    val orderMessage: String? = null
-)
+    val orderMessage: String? = null,
+    val checkout: CheckoutUiState = CheckoutUiState(),
+    val receipt: OrderReceipt? = null
+) {
+    val orderUnits: Int
+        get() = orderItems.sumOf { it.quantity }
+}

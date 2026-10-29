@@ -20,20 +20,24 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            CafeChapinTheme {
-                val storeViewModel:
-                        StoreViewModel = viewModel()
+            val storeViewModel:
+                    StoreViewModel = viewModel()
 
-                val uiState =
-                    storeViewModel.uiState
-                        .collectAsStateWithLifecycle()
-                        .value
+            val uiState =
+                storeViewModel.uiState
+                    .collectAsStateWithLifecycle()
+                    .value
 
+            CafeChapinTheme(
+                darkTheme = uiState.isDarkTheme
+            ) {
                 StoreNavigation(
                     uiState = uiState,
                     storeUiState = storeViewModel.uiState,
                     onToggleFavorite =
                         storeViewModel::toggleFavorite,
+                    onToggleDarkTheme =
+                        storeViewModel::toggleDarkTheme,
                     onQueryChange =
                         storeViewModel::updateQuery,
                     onAddToOrder =

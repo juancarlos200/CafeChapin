@@ -126,7 +126,7 @@ fun OrderDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        "Pedido #${order.id.orEmpty()}",
+                        "Pedido #${order.id}",
                         style = MaterialTheme.typography.headlineSmall
                     )
 

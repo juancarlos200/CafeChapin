@@ -1,4 +1,4 @@
-package com.example.cafechapin.network
+package com.example.cafechapin.data.remote
 
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -11,15 +11,15 @@ private val json = Json {
     ignoreUnknownKeys = true
 }
 
-private val retrofit = Retrofit.Builder()
-    .baseUrl(BASE_URL)
-    .addConverterFactory(
-        json.asConverterFactory("application/json".toMediaType())
-    )
-    .build()
-
 object StoreApi {
-    val orderApi: OrderApi by lazy {
-        retrofit.create(OrderApi::class.java)
+
+    fun createOrderApi(): OrderApi {
+        return Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .addConverterFactory(
+                json.asConverterFactory("application/json".toMediaType())
+            )
+            .build()
+            .create(OrderApi::class.java)
     }
 }

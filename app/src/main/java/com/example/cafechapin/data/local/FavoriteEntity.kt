@@ -1,6 +1,5 @@
-package com.example.cafechapin.data
+package com.example.cafechapin.data.local
 
-import androidx.annotation.StringRes
 import androidx.room3.Entity
 import androidx.room3.PrimaryKey
 

@@ -1,18 +1,21 @@
 package com.example.cafechapin.ui
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.cafechapin.network.StoreApi
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.example.cafechapin.CafeChapinApplication
+import com.example.cafechapin.data.repository.OrderRepository
+import com.example.cafechapin.model.StoreError
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.serialization.SerializationException
-import retrofit2.HttpException
-import java.io.IOException
 
-class OrdersViewModel : ViewModel() {
+class OrdersViewModel(
+    private val orderRepository: OrderRepository
+) : ViewModel() {
 
     private val _ordersState =
         MutableStateFlow<OrdersUiState>(OrdersUiState.Loading)
@@ -27,51 +30,45 @@ class OrdersViewModel : ViewModel() {
     fun loadOrders() {
         viewModelScope.launch {
             _ordersState.value = OrdersUiState.Loading
-            _ordersState.value = try {
-                val orders = StoreApi.orderApi.getOrders()
-
-                if (orders.isEmpty()) {
-                    OrdersUiState.Empty
-                } else {
-                    OrdersUiState.Success(orders)
+            _ordersState.value = orderRepository.getOrders().fold(
+                onSuccess = { orders ->
+                    if (orders.isEmpty()) {
+                        OrdersUiState.Empty
+                    } else {
+                        OrdersUiState.Success(orders)
+                    }
+                },
+                onFailure = { error ->
+                    OrdersUiState.Error(error.toUserMessage())
                 }
-            } catch (e: IOException) {
-                Log.e("OrdersViewModel", "Sin conexión al cargar pedidos", e)
-                OrdersUiState.Error("No pudimos cargar tus pedidos. Revisa tu conexión.")
-            } catch (e: HttpException) {
-                Log.e("OrdersViewModel", "HTTP ${e.code()} al cargar pedidos", e)
-                if (e.code() == 404) {
-                    OrdersUiState.Empty
-                } else {
-                    OrdersUiState.Error("El servidor no pudo atender la solicitud.")
-                }
-            } catch (e: SerializationException) {
-                Log.e("OrdersViewModel", "Respuesta inesperada al cargar pedidos", e)
-                OrdersUiState.Error("Recibimos una respuesta inesperada.")
-            }
+            )
         }
     }
 
     fun loadOrder(orderId: String) {
         viewModelScope.launch {
             _detailState.value = OrderDetailUiState.Loading
-            _detailState.value = try {
-                OrderDetailUiState.Success(
-                    StoreApi.orderApi.getOrder(orderId)
-                )
-            } catch (e: IOException) {
-                Log.e("OrdersViewModel", "Sin conexión al cargar el pedido", e)
-                OrderDetailUiState.Error("No pudimos cargar el pedido. Revisa tu conexión.")
-            } catch (e: HttpException) {
-                Log.e("OrdersViewModel", "HTTP ${e.code()} al cargar el pedido", e)
-                if (e.code() == 404) {
-                    OrderDetailUiState.NotFound
-                } else {
-                    OrderDetailUiState.Error("El servidor no pudo atender la solicitud.")
+            _detailState.value = orderRepository.getOrder(orderId).fold(
+                onSuccess = { order ->
+                    OrderDetailUiState.Success(order)
+                },
+                onFailure = { error ->
+                    if (error is StoreError.NotFound) {
+                        OrderDetailUiState.NotFound
+                    } else {
+                        OrderDetailUiState.Error(error.toUserMessage())
+                    }
                 }
-            } catch (e: SerializationException) {
-                Log.e("OrdersViewModel", "Respuesta inesperada al cargar el pedido", e)
-                OrderDetailUiState.Error("Recibimos una respuesta inesperada.")
+            )
+        }
+    }
+
+    companion object {
+        val Factory: ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                val application =
+                    this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as CafeChapinApplication
+                OrdersViewModel(application.container.orderRepository)
             }
         }
     }

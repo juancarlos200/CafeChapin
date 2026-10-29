@@ -6,6 +6,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.entryProvider
@@ -13,10 +14,12 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.example.cafechapin.model.BillingType
 import com.example.cafechapin.model.PaymentMethod
+import com.example.cafechapin.model.ProductSort
 import com.example.cafechapin.ui.OrdersViewModel
 import com.example.cafechapin.ui.StoreUiState
 import com.example.cafechapin.ui.SubmitOrderUiState
 import com.example.cafechapin.ui.screens.CatalogScreen
+import com.example.cafechapin.ui.screens.CONCURRENCY_TEST_ATTEMPTS
 import com.example.cafechapin.ui.screens.CheckoutScreen
 import com.example.cafechapin.ui.screens.ConfirmationScreen
 import com.example.cafechapin.ui.screens.DetailScreen
@@ -31,10 +34,13 @@ fun StoreNavigation(
     uiState: StoreUiState,
     storeUiState: StateFlow<StoreUiState>,
     submitState: StateFlow<SubmitOrderUiState>,
+    onRetryCatalog: () -> Unit,
     onToggleFavorite: (String) -> Unit,
     onToggleDarkTheme: () -> Unit,
     onQueryChange: (String) -> Unit,
+    onSortChange: (ProductSort) -> Unit,
     onAddToOrder: (String) -> Unit,
+    onConcurrencyTest: (String, Int) -> Unit,
     onIncreaseOrderItem: (String) -> Unit,
     onDecreaseOrderItem: (String) -> Unit,
     onRemoveOrderItem: (String) -> Unit,
@@ -45,7 +51,8 @@ fun StoreNavigation(
     onBillingTypeChange: (BillingType) -> Unit,
     onPaymentMethodChange: (PaymentMethod) -> Unit,
     onConfirmOrder: () -> Unit,
-    onSubmitHandled: () -> Unit
+    onSubmitHandled: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val backStack =
         rememberNavBackStack(
@@ -57,7 +64,8 @@ fun StoreNavigation(
     val currentSubmitState by
         submitState.collectAsStateWithLifecycle()
 
-    val ordersViewModel: OrdersViewModel = viewModel()
+    val ordersViewModel: OrdersViewModel =
+        viewModel(factory = OrdersViewModel.Factory)
 
     val ordersState by
         ordersViewModel.ordersState.collectAsStateWithLifecycle()
@@ -93,6 +101,7 @@ fun StoreNavigation(
 
     NavDisplay(
         backStack = backStack,
+        modifier = modifier,
         onBack = {
             goBack()
         },
@@ -100,12 +109,16 @@ fun StoreNavigation(
 
             entry<StoreNavKey.Catalog> {
                 CatalogScreen(
+                    catalogState =
+                        uiState.catalogState,
                     products =
                         uiState.products,
                     favoriteProductIds =
                         uiState.favoriteProductIds,
                     query =
                         uiState.query,
+                    sort =
+                        uiState.sort,
                     isDarkTheme =
                         uiState.isDarkTheme,
                     orderQuantity =
@@ -114,6 +127,10 @@ fun StoreNavigation(
                         catalogGridState,
                     onQueryChange =
                         onQueryChange,
+                    onSortChange =
+                        onSortChange,
+                    onRetry =
+                        onRetryCatalog,
                     onProductSelected = {
                             productId ->
                         backStack.add(
@@ -175,6 +192,13 @@ fun StoreNavigation(
                             quantityInOrder,
                         orderMessage =
                             uiState.orderMessage,
+                        isReserving =
+                            product.id in
+                                    uiState.reservingProductIds,
+                        isConcurrencyTestRunning =
+                            uiState.isConcurrencyTestRunning,
+                        testResult =
+                            uiState.testResult,
                         onToggleFavorite = {
                             onToggleFavorite(
                                 product.id
@@ -196,6 +220,12 @@ fun StoreNavigation(
                         onOpenOrder = {
                             backStack.add(
                                 StoreNavKey.Order
+                            )
+                        },
+                        onConcurrencyTest = {
+                            onConcurrencyTest(
+                                product.id,
+                                CONCURRENCY_TEST_ATTEMPTS
                             )
                         },
                         onBack = ::goBack
@@ -230,6 +260,8 @@ fun StoreNavigation(
                         uiState.products,
                     message =
                         uiState.orderMessage,
+                    reservingProductIds =
+                        uiState.reservingProductIds,
                     onIncrease =
                         onIncreaseOrderItem,
                     onDecrease =

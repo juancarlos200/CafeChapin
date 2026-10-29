@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -17,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -63,6 +65,8 @@ fun CheckoutScreen(
     onBusinessNameChange: (String) -> Unit,
     onBillingTypeChange: (BillingType) -> Unit,
     onPaymentMethodChange: (PaymentMethod) -> Unit,
+    isSending: Boolean,
+    submitError: String?,
     onConfirmOrder: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
@@ -342,10 +346,31 @@ fun CheckoutScreen(
 
             Button(
                 onClick = onConfirmOrder,
-                enabled = isConfirmEnabled,
+                enabled = isConfirmEnabled && !isSending,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Confirmar pedido (Total Q${"%.2f".format(total)})")
+                if (isSending) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+
+                    Text(
+                        "Enviando pedido…",
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                } else if (submitError != null) {
+                    Text("Reintentar")
+                } else {
+                    Text("Confirmar pedido (Total Q${"%.2f".format(total)})")
+                }
+            }
+
+            if (submitError != null && !isSending) {
+                Text(
+                    submitError,
+                    color = MaterialTheme.colorScheme.error
+                )
             }
 
             if (!isConfirmEnabled) {

@@ -34,6 +34,7 @@ class MainActivity : ComponentActivity() {
                 StoreNavigation(
                     uiState = uiState,
                     storeUiState = storeViewModel.uiState,
+                    submitState = storeViewModel.submitState,
                     onToggleFavorite =
                         storeViewModel::toggleFavorite,
                     onToggleDarkTheme =
@@ -61,7 +62,9 @@ class MainActivity : ComponentActivity() {
                     onPaymentMethodChange =
                         storeViewModel::onPaymentMethodChange,
                     onConfirmOrder =
-                        storeViewModel::confirmOrder
+                        storeViewModel::confirmOrder,
+                    onSubmitHandled =
+                        storeViewModel::onSubmitHandled
                 )
             }
         }

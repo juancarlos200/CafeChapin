@@ -1,334 +1,284 @@
 package com.example.cafechapin.ui
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.example.cafechapin.data.FavoriteEntity
-import com.example.cafechapin.data.OrderLineEntity
-import com.example.cafechapin.data.StoreDatabase
-import com.example.cafechapin.data.ThemePreferences
-import com.example.cafechapin.domain.addToOrder
-import com.example.cafechapin.domain.calculateTotal
-import com.example.cafechapin.domain.decreaseItem
-import com.example.cafechapin.domain.removeItem
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.example.cafechapin.CafeChapinApplication
+import com.example.cafechapin.data.repository.AuthRepository
+import com.example.cafechapin.data.repository.CurrentOrderRepository
+import com.example.cafechapin.data.repository.FavoriteRepository
+import com.example.cafechapin.data.repository.OrderRepository
+import com.example.cafechapin.data.repository.PreferencesRepository
+import com.example.cafechapin.data.repository.ProducerRepository
+import com.example.cafechapin.data.repository.ProductRepository
+import com.example.cafechapin.domain.validateReservation
 import com.example.cafechapin.model.BillingType
-import com.example.cafechapin.model.CoffeeProduct
-import com.example.cafechapin.model.OrderItem
 import com.example.cafechapin.model.OrderReceipt
-import com.example.cafechapin.model.OrderResult
 import com.example.cafechapin.model.PaymentMethod
-import com.example.cafechapin.model.ProducerProfile
-import com.example.cafechapin.network.StoreApi
-import com.example.cafechapin.network.createOrderDto
+import com.example.cafechapin.model.ProductSort
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.serialization.SerializationException
-import retrofit2.HttpException
-import java.io.IOException
-import kotlin.random.Random
+
+private const val CATALOG_TIMEOUT_MILLIS = 15_000L
 
 class StoreViewModel(
-    application: Application
-) : AndroidViewModel(application) {
+    private val authRepository: AuthRepository,
+    private val productRepository: ProductRepository,
+    private val producerRepository: ProducerRepository,
+    private val favoriteRepository: FavoriteRepository,
+    private val currentOrderRepository: CurrentOrderRepository,
+    private val preferencesRepository: PreferencesRepository,
+    private val orderRepository: OrderRepository
+) : ViewModel() {
 
-    private val database = StoreDatabase.getDatabase(application)
+    private val _uiState = MutableStateFlow(StoreUiState())
 
-    private val favoriteDao = database.favoriteDao()
-
-    private val orderLineDao = database.orderLineDao()
-
-    private val themePreferences = ThemePreferences(application)
-
-    private val products = createProducts()
-
-    private fun createProducts(): List<CoffeeProduct> {
-        val originalProducts = listOf(
-            CoffeeProduct(
-                id = "coffee_1",
-                name = "Café Antigua",
-                description = "Café equilibrado con aroma dulce y notas de chocolate.",
-                price = 75.00,
-                producerId = "producer_1",
-                technicalInfo = "Tueste medio, proceso lavado y cultivo a 1,500 metros.",
-                stock = 3,
-                imageUrl = "https://picsum.photos/seed/coffee-1/400/400"
-            ),
-            CoffeeProduct(
-                id = "coffee_2",
-                name = "Café Huehuetenango",
-                description = "Café afrutado con acidez brillante y cuerpo suave.",
-                price = 85.00,
-                producerId = "producer_2",
-                technicalInfo = "Tueste medio, proceso natural y cultivo a 1,700 metros.",
-                stock = 8,
-                imageUrl = "https://picsum.photos/seed/coffee-2/400/400"
-            ),
-            CoffeeProduct(
-                id = "coffee_3",
-                name = "Café Atitlán",
-                description = "Café suave con notas cítricas y florales.",
-                price = 80.00,
-                producerId = "producer_1",
-                technicalInfo = "Tueste claro, proceso lavado y cultivo a 1,600 metros.",
-                stock = 0,
-                imageUrl = "https://picsum.photos/seed/coffee-3/400/400"
-            )
-        )
-
-        val random = Random(1234)
-
-        val regions = listOf(
-            "Antigua",
-            "Huehuetenango",
-            "Atitlán",
-            "Cobán",
-            "Fraijanes"
-        )
-
-        val roasts = listOf(
-            "claro",
-            "medio",
-            "oscuro"
-        )
-
-        val generatedProducts = (4..500).map { number ->
-            val region = regions.random(random)
-            val roast = roasts.random(random)
-
-            CoffeeProduct(
-                id = "generated_$number",
-                name = "Café $region $number",
-                description = "Café de $region con tueste $roast.",
-                price = random.nextInt(50, 121).toDouble(),
-                producerId = if (number % 2 == 0) {
-                    "producer_1"
-                } else {
-                    "producer_2"
-                },
-                technicalInfo = "Tueste $roast, café cultivado en $region.",
-                stock = random.nextInt(0, 11),
-                imageUrl = "https://picsum.photos/seed/generated-$number/400/400"
-            )
-        }
-
-        return originalProducts + generatedProducts
-    }
-
-    private val profiles = listOf(
-        ProducerProfile(
-            id = "producer_1",
-            name = "Finca Los Volcanes",
-            role = "Productor de café",
-            location = "Antigua Guatemala",
-            description = "Finca familiar dedicada al cultivo responsable de café de especialidad."
-        ),
-        ProducerProfile(
-            id = "producer_2",
-            name = "Cooperativa La Sierra",
-            role = "Cooperativa productora",
-            location = "Huehuetenango",
-            description = "Grupo de productores especializados en café cultivado a gran altura."
-        )
-    )
-
-    private val _uiState = MutableStateFlow(
-        StoreUiState(
-            products = products,
-            profiles = profiles
-        )
-    )
-
-    val uiState: StateFlow<StoreUiState> = combine(
-        _uiState,
-        favoriteDao.getFavorites(),
-        orderLineDao.getOrderLines(),
-        themePreferences.isDarkTheme
-    ) { state, favorites, orderLines, isDarkTheme ->
-        state.copy(
-            favoriteProductIds = favorites
-                .map { it.productId }
-                .toSet(),
-            orderItems = orderLines.map {
-                OrderItem(
-                    productId = it.productId,
-                    quantity = it.quantity
-                )
-            },
-            isDarkTheme = isDarkTheme
-        )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = _uiState.value
-    )
+    val uiState: StateFlow<StoreUiState> = _uiState.asStateFlow()
 
     private val _submitState =
         MutableStateFlow<SubmitOrderUiState>(SubmitOrderUiState.Idle)
 
     val submitState: StateFlow<SubmitOrderUiState> = _submitState.asStateFlow()
 
-    private fun saveOrderLine(
-        items: List<OrderItem>,
-        productId: String
-    ) {
-        val item = items.find { it.productId == productId }
+    private var catalogJob: Job? = null
 
+    private var catalogTimeoutJob: Job? = null
+
+    init {
         viewModelScope.launch {
-            if (item == null) {
-                orderLineDao.deleteByProductId(productId)
-            } else {
-                orderLineDao.insert(
-                    OrderLineEntity(
-                        productId = item.productId,
-                        quantity = item.quantity
-                    )
-                )
+            producerRepository.observeProducers().collect { profiles ->
+                _uiState.update { it.copy(profiles = profiles) }
             }
         }
 
         viewModelScope.launch {
-            orderLineDao.getOrderLines().collect { orderLines ->
-                _uiState.update { currentState ->
-                    currentState.copy(
-                        orderItems = orderLines.map {
-                            OrderItem(
-                                productId = it.productId,
-                                quantity = it.quantity
-                            )
-                        }
-                    )
+            favoriteRepository.observeFavoriteIds().collect { favoriteIds ->
+                _uiState.update { it.copy(favoriteProductIds = favoriteIds) }
+            }
+        }
+
+        viewModelScope.launch {
+            currentOrderRepository.observeItems().collect { items ->
+                _uiState.update { it.copy(orderItems = items) }
+            }
+        }
+
+        viewModelScope.launch {
+            preferencesRepository.observeDarkTheme().collect { isDarkTheme ->
+                _uiState.update { it.copy(isDarkTheme = isDarkTheme) }
+            }
+        }
+
+        loadCatalog()
+    }
+
+    fun loadCatalog() {
+        catalogJob?.cancel()
+        catalogTimeoutJob?.cancel()
+
+        _uiState.update { it.copy(catalogState = CatalogUiState.Loading) }
+
+        catalogJob = viewModelScope.launch {
+            val session = authRepository.ensureSignedIn()
+            val sessionError = session.exceptionOrNull()
+
+            if (sessionError != null) {
+                showCatalogError(sessionError.toUserMessage())
+                return@launch
+            }
+
+            productRepository.observeProducts()
+                .catch { error ->
+                    showCatalogError(error.toUserMessage())
                 }
+                .collect { products ->
+                    catalogTimeoutJob?.cancel()
+                    _uiState.update {
+                        it.copy(
+                            products = products,
+                            catalogState = CatalogUiState.Ready
+                        )
+                    }
+                }
+        }
+
+        catalogTimeoutJob = viewModelScope.launch {
+            delay(CATALOG_TIMEOUT_MILLIS)
+
+            if (_uiState.value.catalogState == CatalogUiState.Loading) {
+                catalogJob?.cancel()
+                showCatalogError("El catálogo tardó demasiado en cargar. Revisa tu conexión.")
             }
         }
     }
 
-    private fun saveOrderLine(
-        items: List<OrderItem>,
-        productId: String
-    ) {
-        val item = items.find { it.productId == productId }
-
-        viewModelScope.launch {
-            if (item == null) {
-                orderLineDao.deleteByProductId(productId)
-            } else {
-                orderLineDao.insert(
-                    OrderLineEntity(
-                        productId = item.productId,
-                        quantity = item.quantity
-                    )
-                )
-            }
+    private fun showCatalogError(message: String) {
+        catalogTimeoutJob?.cancel()
+        _uiState.update {
+            it.copy(catalogState = CatalogUiState.Error(message))
         }
     }
 
     fun toggleFavorite(productId: String) {
-        val favorite = FavoriteEntity(productId = productId)
+        val isFavorite = productId in _uiState.value.favoriteProductIds
 
         viewModelScope.launch {
-            if (productId in uiState.value.favoriteProductIds) {
-                favoriteDao.delete(favorite)
-            } else {
-                favoriteDao.insert(favorite)
-            }
+            favoriteRepository.setFavorite(productId, !isFavorite)
         }
     }
 
     fun toggleDarkTheme() {
+        val isDarkTheme = _uiState.value.isDarkTheme
+
         viewModelScope.launch {
-            themePreferences.setDarkTheme(!uiState.value.isDarkTheme)
+            preferencesRepository.setDarkTheme(!isDarkTheme)
         }
     }
 
     fun updateQuery(query: String) {
-        _uiState.update { currentState ->
-            currentState.copy(query = query)
-        }
+        _uiState.update { it.copy(query = query) }
+    }
+
+    fun updateSort(sort: ProductSort) {
+        _uiState.update { it.copy(sort = sort) }
     }
 
     fun addProductToOrder(productId: String) {
-        val currentState = uiState.value
-
-        when (
-            val result = addToOrder(
-                items = currentState.orderItems,
-                products = currentState.products,
-                productId = productId
-            )
-        ) {
-            is OrderResult.Success -> {
-                saveOrderLine(result.items, productId)
-
-                _uiState.update {
-                    it.copy(orderMessage = "Se agregó 1 unidad al pedido.")
-                }
-            }
-
-            is OrderResult.Error -> {
-                _uiState.update {
-                    it.copy(orderMessage = result.message)
-                }
-            }
-        }
+        reserveUnitForOrder(
+            productId = productId,
+            successMessage = "Se reservó 1 unidad para tu pedido."
+        )
     }
 
     fun increaseOrderItem(productId: String) {
-        val currentState = uiState.value
+        reserveUnitForOrder(
+            productId = productId,
+            successMessage = null
+        )
+    }
 
-        when (
-            val result = addToOrder(
-                items = currentState.orderItems,
-                products = currentState.products,
-                productId = productId
+    private fun reserveUnitForOrder(
+        productId: String,
+        successMessage: String?
+    ) {
+        val currentState = _uiState.value
+
+        if (productId in currentState.reservingProductIds) {
+            return
+        }
+
+        val validationError = validateReservation(
+            currentState.products.find { it.id == productId }
+        )
+
+        if (validationError != null) {
+            _uiState.update { it.copy(orderMessage = validationError) }
+            return
+        }
+
+        _uiState.update {
+            it.copy(
+                reservingProductIds = it.reservingProductIds + productId,
+                orderMessage = null
             )
-        ) {
-            is OrderResult.Success -> {
-                saveOrderLine(result.items, productId)
+        }
 
-                _uiState.update {
-                    it.copy(orderMessage = null)
+        viewModelScope.launch {
+            val message = productRepository.reserveUnit(productId).fold(
+                onSuccess = {
+                    currentOrderRepository.addUnit(productId).fold(
+                        onSuccess = { successMessage },
+                        onFailure = { error ->
+                            productRepository.releaseUnits(productId, 1)
+                            error.toUserMessage()
+                        }
+                    )
+                },
+                onFailure = { error ->
+                    error.toUserMessage()
                 }
-            }
+            )
 
-            is OrderResult.Error -> {
-                _uiState.update {
-                    it.copy(orderMessage = result.message)
-                }
+            _uiState.update {
+                it.copy(
+                    reservingProductIds = it.reservingProductIds - productId,
+                    orderMessage = message
+                )
             }
         }
     }
 
     fun decreaseOrderItem(productId: String) {
-        val updatedItems = decreaseItem(
-            items = uiState.value.orderItems,
-            productId = productId
-        )
+        _uiState.update { it.copy(orderMessage = null) }
 
-        saveOrderLine(updatedItems, productId)
-
-        _uiState.update {
-            it.copy(orderMessage = null)
+        viewModelScope.launch {
+            currentOrderRepository.removeUnit(productId).fold(
+                onSuccess = { releasedUnits ->
+                    releaseUnits(productId, releasedUnits)
+                },
+                onFailure = { error ->
+                    _uiState.update { it.copy(orderMessage = error.toUserMessage()) }
+                }
+            )
         }
     }
 
     fun removeOrderItem(productId: String) {
-        val updatedItems = removeItem(
-            items = uiState.value.orderItems,
-            productId = productId
-        )
+        _uiState.update { it.copy(orderMessage = null) }
 
-        saveOrderLine(updatedItems, productId)
+        viewModelScope.launch {
+            currentOrderRepository.removeLine(productId).fold(
+                onSuccess = { releasedUnits ->
+                    releaseUnits(productId, releasedUnits)
+                },
+                onFailure = { error ->
+                    _uiState.update { it.copy(orderMessage = error.toUserMessage()) }
+                }
+            )
+        }
+    }
+
+    private suspend fun releaseUnits(productId: String, quantity: Int) {
+        productRepository.releaseUnits(productId, quantity).onFailure { error ->
+            _uiState.update { it.copy(orderMessage = error.toUserMessage()) }
+        }
+    }
+
+    fun onConcurrencyTest(productId: String, attempts: Int) {
+        if (_uiState.value.isConcurrencyTestRunning) {
+            return
+        }
 
         _uiState.update {
-            it.copy(orderMessage = null)
+            it.copy(
+                isConcurrencyTestRunning = true,
+                testResult = null
+            )
+        }
+
+        viewModelScope.launch {
+            val results = List(attempts) {
+                async { productRepository.reserveUnit(productId) }
+            }.awaitAll()
+
+            val successes = results.count { it.isSuccess }
+
+            _uiState.update {
+                it.copy(
+                    isConcurrencyTestRunning = false,
+                    testResult = "Éxitos: $successes · Rechazos: ${attempts - successes}"
+                )
+            }
         }
     }
 
@@ -406,14 +356,8 @@ class StoreViewModel(
         }
     }
 
-    fun resetCheckout() {
-        _uiState.update { currentState ->
-            currentState.copy(checkout = CheckoutUiState())
-        }
-    }
-
-    fun confirmOrder(): Boolean {
-        val currentState = uiState.value
+    fun confirmOrder() {
+        val currentState = _uiState.value
         val checkout = currentState.checkout
 
         if (_submitState.value == SubmitOrderUiState.Sending) {
@@ -424,77 +368,67 @@ class StoreViewModel(
             return
         }
 
-        val total = calculateTotal(
-            items = currentState.orderItems,
-            products = currentState.products
-        )
-
-        val order = createOrderDto(
-            items = currentState.orderItems,
-            products = currentState.products,
-            billingType = checkout.billingType,
-            paymentMethod = checkout.paymentMethod,
-            createdAt = System.currentTimeMillis()
-        )
-
         _submitState.value = SubmitOrderUiState.Sending
 
         viewModelScope.launch {
-            try {
-                val createdOrder = StoreApi.orderApi.createOrder(order)
+            orderRepository.submitOrder(
+                items = currentState.orderItems,
+                products = currentState.products,
+                billingType = checkout.billingType,
+                paymentMethod = checkout.paymentMethod
+            ).fold(
+                onSuccess = { order ->
+                    currentOrderRepository.clear()
 
-                val receipt = OrderReceipt(
-                    folio = "#${createdOrder.id.orEmpty()}",
-                    customerName = checkout.fullName,
-                    billingType = checkout.billingType,
-                    nit = if (checkout.billingType == BillingType.NIT) checkout.nit else null,
-                    businessName = if (checkout.billingType == BillingType.NIT) {
-                        checkout.businessName
-                    } else {
-                        null
-                    },
-                    paymentMethod = checkout.paymentMethod,
-                    total = total
-                )
+                    val isNit = checkout.billingType == BillingType.NIT
 
-                _uiState.update {
-                    it.copy(
-                        orderItems = emptyList(),
-                        checkout = CheckoutUiState(),
-                        receipt = receipt
+                    val receipt = OrderReceipt(
+                        folio = "#${order.id}",
+                        customerName = checkout.fullName,
+                        billingType = checkout.billingType,
+                        nit = if (isNit) checkout.nit else null,
+                        businessName = if (isNit) checkout.businessName else null,
+                        paymentMethod = checkout.paymentMethod,
+                        total = order.total
                     )
+
+                    _uiState.update {
+                        it.copy(
+                            checkout = CheckoutUiState(),
+                            receipt = receipt
+                        )
+                    }
+
+                    _submitState.value = SubmitOrderUiState.Success
+                },
+                onFailure = { error ->
+                    _submitState.value = SubmitOrderUiState.Error(error.toUserMessage())
                 }
-
-                _submitState.value = SubmitOrderUiState.Success
-            } catch (e: IOException) {
-                Log.e("StoreViewModel", "Sin conexión al enviar el pedido", e)
-                _submitState.value = SubmitOrderUiState.Error(
-                    "No pudimos enviar tu pedido. Revisa tu conexión."
-                )
-            } catch (e: HttpException) {
-                Log.e("StoreViewModel", "HTTP ${e.code()} al enviar el pedido", e)
-                _submitState.value = SubmitOrderUiState.Error(
-                    "El servidor no pudo recibir tu pedido. Intenta de nuevo."
-                )
-            } catch (e: SerializationException) {
-                Log.e("StoreViewModel", "Respuesta inesperada al enviar el pedido", e)
-                _submitState.value = SubmitOrderUiState.Error(
-                    "Recibimos una respuesta inesperada. Intenta de nuevo."
-                )
-            }
-        viewModelScope.launch {
-            orderLineDao.clearOrder()
-        }
-
-        _uiState.update {
-            it.copy(
-                checkout = CheckoutUiState(),
-                receipt = receipt
             )
         }
     }
 
     fun onSubmitHandled() {
         _submitState.value = SubmitOrderUiState.Idle
+    }
+
+    companion object {
+        val Factory: ViewModelProvider.Factory = viewModelFactory {
+            initializer {
+                val application =
+                    this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as CafeChapinApplication
+                val container = application.container
+
+                StoreViewModel(
+                    authRepository = container.authRepository,
+                    productRepository = container.productRepository,
+                    producerRepository = container.producerRepository,
+                    favoriteRepository = container.favoriteRepository,
+                    currentOrderRepository = container.currentOrderRepository,
+                    preferencesRepository = container.preferencesRepository,
+                    orderRepository = container.orderRepository
+                )
+            }
+        }
     }
 }

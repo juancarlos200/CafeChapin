@@ -6,10 +6,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -33,6 +35,8 @@ import com.example.cafechapin.model.CoffeeProduct
 import com.example.cafechapin.model.ProducerProfile
 import com.example.cafechapin.ui.components.ProductImage
 
+const val CONCURRENCY_TEST_ATTEMPTS = 20
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetailScreen(
@@ -41,17 +45,23 @@ fun DetailScreen(
     isFavorite: Boolean,
     orderQuantity: Int,
     orderMessage: String?,
+    isReserving: Boolean,
+    isConcurrencyTestRunning: Boolean,
+    testResult: String?,
     onToggleFavorite: () -> Unit,
     onOpenProducer: (String) -> Unit,
     onAddToOrder: () -> Unit,
     onOpenOrder: () -> Unit,
-    onBack: () -> Unit
+    onConcurrencyTest: () -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var showTechnicalInfo by remember {
         mutableStateOf(false)
     }
 
     Scaffold(
+        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = { Text("Detalle") },
@@ -117,12 +127,19 @@ fun DetailScreen(
                     )
 
                     Text(
-                        if (product.stock == 0) {
+                        if (product.stock <= 0) {
                             "Agotado"
                         } else {
-                            "${product.stock} disponibles · $orderQuantity en el pedido"
+                            "${product.stock} disponibles"
+                        },
+                        color = if (product.stock <= 0) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
                         }
                     )
+
+                    Text("$orderQuantity en tu pedido")
                 }
 
                 IconButton(
@@ -151,10 +168,21 @@ fun DetailScreen(
 
             Button(
                 onClick = onAddToOrder,
-                enabled = product.stock > 0,
+                enabled = !isReserving,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Agregar al pedido")
+                if (isReserving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Text(
+                        "Reservando unidad…",
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                } else {
+                    Text("Agregar al pedido")
+                }
             }
 
             if (orderMessage != null) {
@@ -199,6 +227,40 @@ fun DetailScreen(
                         )
 
                         Text(product.technicalInfo)
+                    }
+                }
+            }
+
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement =
+                        Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        "Herramienta de prueba",
+                        style =
+                            MaterialTheme.typography.titleMedium
+                    )
+
+                    OutlinedButton(
+                        onClick = onConcurrencyTest,
+                        enabled = !isConcurrencyTestRunning,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            if (isConcurrencyTestRunning) {
+                                "Ejecutando prueba…"
+                            } else {
+                                "Prueba de concurrencia · $CONCURRENCY_TEST_ATTEMPTS intentos"
+                            }
+                        )
+                    }
+
+                    if (testResult != null) {
+                        Text(testResult)
                     }
                 }
             }

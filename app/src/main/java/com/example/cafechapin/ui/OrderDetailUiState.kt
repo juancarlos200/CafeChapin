@@ -1,6 +1,6 @@
 package com.example.cafechapin.ui
 
-import com.example.cafechapin.network.OrderDto
+import com.example.cafechapin.model.Order
 
 sealed interface OrderDetailUiState {
 
@@ -9,7 +9,7 @@ sealed interface OrderDetailUiState {
     data object NotFound : OrderDetailUiState
 
     data class Success(
-        val order: OrderDto
+        val order: Order
     ) : OrderDetailUiState
 
     data class Error(

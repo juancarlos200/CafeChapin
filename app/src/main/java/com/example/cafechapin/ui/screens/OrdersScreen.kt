@@ -128,13 +128,13 @@ fun OrdersScreen(
                 ) {
                     items(
                         items = state.orders,
-                        key = { it.id.orEmpty() }
+                        key = { it.id }
                     ) { order ->
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    order.id?.let(onOrderSelected)
+                                    onOrderSelected(order.id)
                                 }
                         ) {
                             Column(
@@ -142,7 +142,7 @@ fun OrdersScreen(
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text(
-                                    "#${order.id.orEmpty()} · ${formatOrderDate(order.createdAt)}",
+                                    "#${order.id} · ${formatOrderDate(order.createdAt)}",
                                     style = MaterialTheme.typography.titleMedium
                                 )
 

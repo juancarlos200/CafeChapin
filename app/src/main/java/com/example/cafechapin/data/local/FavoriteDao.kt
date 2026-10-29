@@ -1,4 +1,4 @@
-package com.example.cafechapin.data
+package com.example.cafechapin.data.local
 
 import androidx.room3.Dao
 import androidx.room3.Delete

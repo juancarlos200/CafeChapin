@@ -1,4 +1,4 @@
-package com.example.cafechapin.network
+package com.example.cafechapin.data.remote
 
 import retrofit2.http.Body
 import retrofit2.http.GET

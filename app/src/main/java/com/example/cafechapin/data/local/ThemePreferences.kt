@@ -1,4 +1,4 @@
-package com.example.cafechapin.data
+package com.example.cafechapin.data.local
 
 import android.content.Context
 import androidx.datastore.core.DataStore

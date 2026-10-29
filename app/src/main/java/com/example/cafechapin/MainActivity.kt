@@ -20,8 +20,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            val storeViewModel:
-                    StoreViewModel = viewModel()
+            val storeViewModel: StoreViewModel =
+                viewModel(factory = StoreViewModel.Factory)
 
             val uiState =
                 storeViewModel.uiState
@@ -35,14 +35,20 @@ class MainActivity : ComponentActivity() {
                     uiState = uiState,
                     storeUiState = storeViewModel.uiState,
                     submitState = storeViewModel.submitState,
+                    onRetryCatalog =
+                        storeViewModel::loadCatalog,
                     onToggleFavorite =
                         storeViewModel::toggleFavorite,
                     onToggleDarkTheme =
                         storeViewModel::toggleDarkTheme,
                     onQueryChange =
                         storeViewModel::updateQuery,
+                    onSortChange =
+                        storeViewModel::updateSort,
                     onAddToOrder =
                         storeViewModel::addProductToOrder,
+                    onConcurrencyTest =
+                        storeViewModel::onConcurrencyTest,
                     onIncreaseOrderItem =
                         storeViewModel::increaseOrderItem,
                     onDecreaseOrderItem =

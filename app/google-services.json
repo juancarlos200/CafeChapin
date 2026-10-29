@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "37753783110",
+    "project_id": "cafechapin",
+    "storage_bucket": "cafechapin.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:37753783110:android:52db8f8a0afc32dd0d5b47",
+        "android_client_info": {
+          "package_name": "com.hdulam.cafechapin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZjDpflFRSSikoLH3a_14LXqkFFW9TQ4U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -2,6 +2,7 @@ package com.example.cafechapin.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,11 +38,13 @@ fun OrderScreen(
     orderItems: List<OrderItem>,
     products: List<CoffeeProduct>,
     message: String?,
+    reservingProductIds: Set<String>,
     onIncrease: (String) -> Unit,
     onDecrease: (String) -> Unit,
     onRemove: (String) -> Unit,
     onContinueToCheckout: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val total =
         calculateTotal(orderItems, products)
@@ -50,6 +53,7 @@ fun OrderScreen(
         orderItems.sumOf { it.quantity }
 
     Scaffold(
+        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = {
@@ -109,7 +113,7 @@ fun OrderScreen(
                     .fillMaxSize()
                     .padding(innerPadding),
                 contentPadding =
-                    androidx.compose.foundation.layout.PaddingValues(
+                    PaddingValues(
                         start = 16.dp,
                         end = 16.dp,
                         top = 16.dp,
@@ -141,6 +145,9 @@ fun OrderScreen(
                         }
 
                     if (product != null) {
+                        val isReserving =
+                            product.id in reservingProductIds
+
                         val subtotal =
                             calculateSubtotal(
                                 product,
@@ -179,6 +186,7 @@ fun OrderScreen(
                                                 product.id
                                             )
                                         },
+                                        enabled = !isReserving,
                                         modifier =
                                             Modifier.sizeIn(
                                                 minWidth = 48.dp,
@@ -198,6 +206,7 @@ fun OrderScreen(
                                                 product.id
                                             )
                                         },
+                                        enabled = !isReserving,
                                         modifier =
                                             Modifier.sizeIn(
                                                 minWidth = 48.dp,
@@ -209,6 +218,16 @@ fun OrderScreen(
                                 }
 
                                 Text(
+                                    if (isReserving) {
+                                        "Reservando unidad…"
+                                    } else if (product.stock <= 0) {
+                                        "Agotado: no quedan unidades para agregar"
+                                    } else {
+                                        "${product.stock} disponibles"
+                                    }
+                                )
+
+                                Text(
                                     "Subtotal Q${"%.2f".format(subtotal)}"
                                 )
 
@@ -218,6 +237,7 @@ fun OrderScreen(
                                             product.id
                                         )
                                     },
+                                    enabled = !isReserving,
                                     modifier =
                                         Modifier.sizeIn(
                                             minHeight = 48.dp

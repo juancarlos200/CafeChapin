@@ -79,8 +79,6 @@ fun CheckoutScreen(
     val orderUnits = storeState.value.orderUnits
     val total = calculateTotal(orderItems, products)
 
-    // derivedStateOf evita que el botón dispare recomposición extra cuando
-    // el resultado (habilitado/deshabilitado) no cambia, aunque el uiState sí cambie.
     val isConfirmEnabled by remember(storeState) {
         derivedStateOf {
             storeState.value.checkout.isFormValid &&

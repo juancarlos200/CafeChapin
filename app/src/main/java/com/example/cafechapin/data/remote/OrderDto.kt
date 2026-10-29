@@ -1,4 +1,4 @@
-package com.example.cafechapin.network
+package com.example.cafechapin.data.remote
 
 import kotlinx.serialization.Serializable
 
